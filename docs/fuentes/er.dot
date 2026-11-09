@@ -1,0 +1,64 @@
+digraph ER {
+  graph [rankdir=LR, fontname="Helvetica", label="Diagrama Entidad-Relación — bodega_electricidad_prestamos\n(reconstruido desde server.py)", labelloc=t, fontsize=18, pad=0.4, nodesep=0.6, ranksep=1.1, bgcolor=white];
+  node  [shape=plain, fontname="Helvetica", fontsize=11];
+  edge  [fontname="Helvetica", fontsize=10, color="#444444", arrowhead=crow, arrowtail=tee, dir=both];
+
+  profesores [label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+    <tr><td bgcolor="#007bff"><font color="white"><b>profesores</b></font></td></tr>
+    <tr><td align="left"><b>PK</b> id_profesor INT</td></tr>
+    <tr><td align="left">rut VARCHAR(12) UNIQUE</td></tr>
+    <tr><td align="left">nombre VARCHAR(80)</td></tr>
+    <tr><td align="left">apellido VARCHAR(80)</td></tr>
+    <tr><td align="left">email VARCHAR(120) UNIQUE</td></tr>
+    <tr><td align="left">password VARCHAR(255)</td></tr></table>>];
+
+  mensajes [label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+    <tr><td bgcolor="#007bff"><font color="white"><b>mensajes</b></font></td></tr>
+    <tr><td align="left"><b>PK</b> id_mensaje INT</td></tr>
+    <tr><td align="left"><b>FK</b> id_profesor INT</td></tr>
+    <tr><td align="left">remitente VARCHAR(20)</td></tr>
+    <tr><td align="left">mensaje TEXT</td></tr>
+    <tr><td align="left">fecha DATETIME</td></tr></table>>];
+
+  prestamos [label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+    <tr><td bgcolor="#28a745"><font color="white"><b>prestamos</b></font></td></tr>
+    <tr><td align="left"><b>PK</b> id_prestamo INT</td></tr>
+    <tr><td align="left">fecha_solicitud DATETIME</td></tr>
+    <tr><td align="left">estado VARCHAR(20)</td></tr>
+    <tr><td align="left">motivo_rechazo VARCHAR(255)</td></tr></table>>];
+
+  detalle_prestamos [label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+    <tr><td bgcolor="#28a745"><font color="white"><b>detalle_prestamos</b></font></td></tr>
+    <tr><td align="left"><b>PK</b> id_detalle INT</td></tr>
+    <tr><td align="left"><b>FK</b> id_prestamo INT</td></tr>
+    <tr><td align="left"><b>FK</b> id_articulo INT</td></tr>
+    <tr><td align="left">cantidad INT</td></tr></table>>];
+
+  articulos [label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+    <tr><td bgcolor="#fd7e14"><font color="white"><b>articulos</b></font></td></tr>
+    <tr><td align="left"><b>PK</b> id_articulo INT</td></tr>
+    <tr><td align="left">sku VARCHAR(30) UNIQUE</td></tr>
+    <tr><td align="left">nombre VARCHAR(150)</td></tr></table>>];
+
+  inventario_stock [label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+    <tr><td bgcolor="#fd7e14"><font color="white"><b>inventario_stock</b></font></td></tr>
+    <tr><td align="left"><b>PK</b> id_stock INT</td></tr>
+    <tr><td align="left"><b>FK</b> id_articulo INT</td></tr>
+    <tr><td align="left"><b>FK</b> id_ubicacion INT</td></tr>
+    <tr><td align="left">cantidad_total INT</td></tr>
+    <tr><td align="left">cantidad_prestada INT</td></tr></table>>];
+
+  ubicaciones [label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+    <tr><td bgcolor="#fd7e14"><font color="white"><b>ubicaciones</b></font></td></tr>
+    <tr><td align="left"><b>PK</b> id_ubicacion INT</td></tr>
+    <tr><td align="left">nombre VARCHAR(100)</td></tr></table>>];
+
+  profesores -> mensajes [label=" 1 : N \n escribe/recibe"];
+  prestamos -> detalle_prestamos [label=" 1 : N \n contiene"];
+  articulos -> detalle_prestamos [label=" 1 : N \n se solicita en"];
+  articulos -> inventario_stock [label=" 1 : N \n tiene stock en"];
+  ubicaciones -> inventario_stock [label=" 1 : N \n almacena"];
+
+  nota [shape=note, style=filled, fillcolor="#fff3cd", fontsize=10, label="Nota: 'prestamos' no tiene id_profesor,\npor eso una solicitud no queda ligada\nal profesor que la hizo (ver README)."];
+  prestamos -> nota [style=dashed, arrowhead=none, arrowtail=none, color="#b8860b"];
+}

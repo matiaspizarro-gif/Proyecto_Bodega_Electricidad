@@ -1,0 +1,30 @@
+digraph ARQ {
+  graph [rankdir=LR, fontname="Helvetica", label="Arquitectura y Despliegue — Sistema Pañol", labelloc=t, fontsize=18, pad=0.4, nodesep=0.5, ranksep=0.9, bgcolor=white, compound=true];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#ffffff", color="#444444"];
+  edge  [fontname="Helvetica", fontsize=10, color="#333333"];
+
+  subgraph cluster_cliente {
+    label="Cliente (PC del profesor / encargado)"; style="rounded,dashed"; color="#888888";
+    nav [label="Navegador web\n\nlogin.html\nindex.html + app.js (Profesor)\nencargado.html (Encargado)", fillcolor="#f4f6f9"];
+  }
+
+  subgraph cluster_host {
+    label="Servidor / PC anfitrión con Docker"; style="rounded"; color="#007bff"; fontcolor="#007bff";
+    subgraph cluster_red {
+      label="Red interna docker-compose"; style="rounded,dashed"; color="#7aa7e0"; fontcolor="#4a78b5";
+      web [label=<<b>Contenedor web: flask_taller</b><br/><br/>python:3.10-slim<br/>Flask 3.1 + PyMySQL<br/>server.py (API REST + sesiones)<br/>templates/ y static/<br/><br/>puerto interno 5000>, fillcolor="#eaf3ff", color="#007bff"];
+      db  [label=<<b>Contenedor db: mysql_taller</b><br/><br/>MySQL 8.0<br/>BD bodega_electricidad_prestamos<br/>init: db/schema.sql<br/><br/>puerto interno 3306>, fillcolor="#fff4e6", color="#fd7e14"];
+    }
+    vol [label="Volumen Docker\ndb_data\n(/var/lib/mysql)", shape=cylinder, fillcolor="#fff4e6", color="#fd7e14"];
+    env [label=".env\n(credenciales,\nSECRET_KEY)", shape=note, fillcolor="#fff3cd", color="#b8860b"];
+  }
+
+  nav -> web [label="HTTP  :5000\nHTML + JSON (fetch /api/...)\ncookie de sesión"];
+  web -> db  [label="TCP 3306 (host = db)\nconsultas SQL parametrizadas"];
+  db  -> vol [label="persistencia", style=dashed];
+  env -> web [style=dashed, label="variables\nde entorno"];
+  env -> db  [style=dashed];
+
+  adm [label="phpMyAdmin / cliente MySQL\n(administración)", fillcolor="#f4f6f9"];
+  adm -> db [label="localhost:3307 → 3306", style=dashed];
+}
