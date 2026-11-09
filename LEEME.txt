@@ -1,0 +1,4 @@
+1.-Ejecutar server.py
+*urls*
+http://127.0.0.1:5000/ web de profesores
+http://127.0.0.1:5000/encargado web de encargado

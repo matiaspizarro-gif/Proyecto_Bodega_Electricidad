@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Encargado de Bodega</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 950px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .nav-tabs { display: flex; gap: 10px; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+        .nav-tabs button { padding: 10px 18px; border: none; background: #e9ecef; cursor: pointer; font-weight: bold; border-radius: 5px 5px 0 0; }
+        .nav-tabs button.active { background: #007bff; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card { border: 1px solid #e0e0e0; background: #fafafa; padding: 15px; margin-bottom: 15px; border-radius: 6px; }
+        .btn-green { background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        .btn-red { background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        .btn-blue { background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Panel del Encargado de Bodega</h2>
+
+        <!-- Navegación por pestañas -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="cambiarTab(event, 'pendientes')">Solicitudes Pendientes</button>
+            <button class="tab-btn" onclick="cambiarTab(event, 'historial')">Historial de Pedidos</button>
+            <button class="tab-btn" onclick="cambiarTab(event, 'crud')">CRUD Inventario</button>
+            <button class="tab-btn" onclick="cambiarTab(event, 'mensajes')">Mensajes por Profesor</button>
+        </div>
+
+        <!-- 1. TAB SOLICITUDES PENDIENTES -->
+        <div id="tab-pendientes" class="tab-content active">
+            <button onclick="cargarPendientes()" class="btn-blue" style="margin-bottom: 15px;">🔄 Actualizar Lista</button>
+            <div id="contenedorSolicitudes">Cargando solicitudes...</div>
+        </div>
+
+        <!-- 2. TAB HISTORIAL -->
+        <div id="tab-historial" class="tab-content">
+            <h3>Historial General de Pedidos</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                        <th>Detalle de Artículos</th>
+                        <th>Motivo / Observación</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaHistorial"></tbody>
+            </table>
+        </div>
+
+        <!-- 3. TAB CRUD INVENTARIO -->
+        <div id="tab-crud" class="tab-content">
+            <h3>Agregar Nuevo Artículo al Inventario</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="newSku" placeholder="SKU (ej: ART-0502)" style="padding: 8px;">
+                <input type="text" id="newNombre" placeholder="Nombre del Artículo" style="padding: 8px; flex: 1;">
+                <input type="number" id="newStock" placeholder="Stock Inicial" style="padding: 8px; width: 100px;">
+                <button onclick="guardarArticulo()" class="btn-green">Guardar Artículo</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>SKU</th>
+                        <th>Nombre</th>
+                        <th>Stock Total</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaCrud"></tbody>
+            </table>
+        </div>
+
+        <!-- 4. TAB MENSAJES -->
+        <div id="tab-mensajes" class="tab-content">
+            <h3>Chat con Profesores</h3>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="selectProfesorChat"><strong>Seleccionar Profesor para Chatear:</strong></label>
+                <select id="selectProfesorChat" onchange="iniciarAutoActualizacionChat()" style="padding: 8px; width: 100%; margin-top: 5px;"></select>
+            </div>
+
+            <div id="chatBoxEncargado" style="height: 250px; border: 1px solid #ccc; background: #fff; overflow-y: scroll; padding: 10px; margin-bottom: 10px; border-radius: 4px;"></div>
+            
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="msgInputEncargado" placeholder="Escribe un mensaje al profesor..." style="flex: 1; padding: 8px;" onkeypress="if(event.key === 'Enter') responderProfesor()">
+                <button onclick="responderProfesor()" class="btn-blue">Enviar Mensaje</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let intervalEncargado = null;
+
+        function cambiarTab(evt, tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            evt.currentTarget.classList.add('active');
+
+            if (tabName === 'pendientes') cargarPendientes();
+            if (tabName === 'historial') cargarHistorial();
+            if (tabName === 'crud') cargarCrud();
+            if (tabName === 'mensajes') cargarListaProfesoresChat();
+        }
+
+        async function cargarPendientes() {
+            const cont = document.getElementById('contenedorSolicitudes');
+            try {
+                const res = await fetch('/api/solicitudes');
+                const datos = await res.json();
+
+                if (!datos || datos.length === 0) {
+                    cont.innerHTML = '<p style="color: #666; font-style: italic;">No hay solicitudes pendientes en este momento.</p>';
+                    return;
+                }
+
+                cont.innerHTML = datos.map(sol => `
+                    <div class="card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:8px;">
+                            <h3 style="margin:0;">Solicitud #${sol.id}</h3>
+                            <small style="color:#666;">${sol.fecha}</small>
+                        </div>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            ${sol.materiales.map(m => `<li><strong>[${m.sku}]</strong> ${m.nombre} (x${m.cantidad})</li>`).join('')}
+                        </ul>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="btn-green" onclick="cambiarEstado('aprobar', ${sol.id})">✓ Aprobar</button>
+                            <button class="btn-red" onclick="rechazarPedido(${sol.id})">✗ Rechazar</button>
+                            <button class="btn-blue" onclick="cambiarEstado('entregar', ${sol.id})">📦 Marcar Entregado</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error("Error al cargar pendientes:", err);
+                cont.innerHTML = '<p style="color: red;">Error al conectar con la base de datos.</p>';
+            }
+        }
+
+        async function cambiarEstado(accion, id) {
+            try {
+                const res = await fetch(`/api/pedidos/${accion}/${id}`, { method: 'POST' });
+                const resp = await res.json();
+                if (resp.status === 'ok') {
+                    cargarPendientes();
+                } else {
+                    alert("Error: " + resp.message);
+                }
+            } catch (err) {
+                alert("Error al actualizar la solicitud.");
+            }
+        }
+
+        async function rechazarPedido(id) {
+            const motivo = prompt("Indique el motivo del rechazo de la solicitud:");
+            if (motivo) {
+                try {
+                    const res = await fetch(`/api/pedidos/rechazar/${id}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ motivo })
+                    });
+                    const resp = await res.json();
+                    if (resp.status === 'ok') {
+                        cargarPendientes();
+                    }
+                } catch (err) {
+                    alert("Error al procesar el rechazo.");
+                }
+            }
+        }
+
+        async function cargarHistorial() {
+            try {
+                const res = await fetch('/api/pedidos/historial');
+                const datos = await res.json();
+                const tbody = document.getElementById('tablaHistorial');
+                tbody.innerHTML = datos.map(h => `
+                    <tr>
+                        <td>#${h.id_prestamo}</td>
+                        <td>${h.fecha_solicitud}</td>
+                        <td><strong>${h.estado}</strong></td>
+                        <td>${h.detalles}</td>
+                        <td>${h.motivo_rechazo || '-'}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error al obtener historial:", err);
+            }
+        }
+
+        async function cargarCrud() {
+            try {
+                const res = await fetch('/api/articulos');
+                const datos = await res.json();
+                const tbody = document.getElementById('tablaCrud');
+                tbody.innerHTML = datos.map(a => `
+                    <tr>
+                        <td>${a.id_articulo}</td>
+                        <td>${a.sku}</td>
+                        <td>${a.nombre}</td>
+                        <td>${a.stock}</td>
+                        <td><button class="btn-red" onclick="eliminarArticulo(${a.id_articulo})">Eliminar</button></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error al cargar inventario:", err);
+            }
+        }
+
+        async function guardarArticulo() {
+            const sku = document.getElementById('newSku').value.trim();
+            const nombre = document.getElementById('newNombre').value.trim();
+            const stock = document.getElementById('newStock').value;
+
+            if (!sku || !nombre) { 
+                alert("Completa al menos el SKU y el Nombre."); 
+                return; 
+            }
+
+            try {
+                await fetch('/api/articulos', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sku, nombre, stock: stock || 0 })
+                });
+
+                document.getElementById('newSku').value = '';
+                document.getElementById('newNombre').value = '';
+                document.getElementById('newStock').value = '';
+                cargarCrud();
+            } catch (err) {
+                alert("Error al guardar el artículo.");
+            }
+        }
+
+        async function eliminarArticulo(id) {
+            if (confirm("¿Estás seguro de eliminar este artículo del sistema?")) {
+                try {
+                    await fetch(`/api/articulos?id=${id}`, { method: 'DELETE' });
+                    cargarCrud();
+                } catch (err) {
+                    alert("Error al eliminar.");
+                }
+            }
+        }
+
+        async function cargarListaProfesoresChat() {
+            try {
+                const select = document.getElementById('selectProfesorChat');
+                const chatBox = document.getElementById('chatBoxEncargado');
+                const res = await fetch('/api/profesores');
+                const profesores = await res.json();
+                
+                if (!profesores || profesores.length === 0) {
+                    select.innerHTML = '<option value="">No hay profesores registrados</option>';
+                    return;
+                }
+
+                let opcionesHtml = '<option value="" selected disabled>-- Seleccione un Profesor para chatear --</option>';
+                opcionesHtml += profesores.map(p => 
+                    `<option value="${p.id_profesor}">${p.nombre} ${p.apellido} (${p.email})</option>`
+                ).join('');
+
+                select.innerHTML = opcionesHtml;
+                chatBox.innerHTML = '<p style="color:#888; font-style:italic; text-align: center;">Selecciona un profesor del menú superior para ver la conversación.</p>';
+            } catch (err) {
+                console.error("Error al cargar profesores:", err);
+            }
+        }
+
+        function iniciarAutoActualizacionChat() {
+            if (intervalEncargado) clearInterval(intervalEncargado);
+
+            obtenerMensajesChat();
+            intervalEncargado = setInterval(obtenerMensajesChat, 3000);
+        }
+
+        async function obtenerMensajesChat() {
+            const idProf = document.getElementById('selectProfesorChat').value;
+            const chatBox = document.getElementById('chatBoxEncargado');
+
+            if (!idProf) {
+                chatBox.innerHTML = '<p style="color:#888; font-style:italic; text-align: center;">Selecciona un profesor del menú superior para ver la conversación.</p>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/mensajes?id_profesor=${idProf}`);
+                const msgs = await res.json();
+
+                if (!msgs || msgs.length === 0) {
+                    chatBox.innerHTML = '<p style="color:#888; font-style:italic; text-align: center;">No hay mensajes registrados con este profesor.</p>';
+                    return;
+                }
+
+                const estaAlFinal = (chatBox.scrollHeight - chatBox.scrollTop) <= (chatBox.clientHeight + 50);
+
+                chatBox.innerHTML = msgs.map(m => `
+                    <div style="margin-bottom: 8px; text-align: ${m.remitente === 'Encargado' ? 'right' : 'left'};">
+                        <span style="background: ${m.remitente === 'Encargado' ? '#d1e7dd' : '#f8d7da'}; padding: 6px 12px; border-radius: 6px; display: inline-block;">
+                            <strong>${m.remitente}:</strong> ${m.mensaje}
+                        </span>
+                        <div style="font-size: 10px; color: #888; margin-top:2px;">${m.fecha}</div>
+                    </div>
+                `).join('');
+
+                if (estaAlFinal) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            } catch (err) {
+                console.error("Error al cargar chat:", err);
+            }
+        }
+
+        async function responderProfesor() {
+            const selectProf = document.getElementById('selectProfesorChat');
+            const input = document.getElementById('msgInputEncargado');
+            
+            if (!selectProf || !input) return;
+
+            const idProf = selectProf.value;
+            const texto = input.value.trim();
+
+            if (!idProf || idProf === "") {
+                alert("Selecciona un profesor antes de enviar un mensaje.");
+                return;
+            }
+
+            if (!texto) {
+                alert("Escribe un mensaje antes de presionar Enviar.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/mensajes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_profesor: parseInt(idProf),
+                        remitente: 'Encargado',
+                        mensaje: texto
+                    })
+                });
+
+                const respuesta = await res.json();
+
+                if (res.ok && respuesta.status === 'ok') {
+                    input.value = '';
+                    obtenerMensajesChat();
+                } else {
+                    alert("Error al guardar mensaje: " + (respuesta.message || "Error desconocido."));
+                }
+            } catch (err) {
+                console.error("Error en la petición:", err);
+                alert("Error de conexión al enviar el mensaje.");
+            }
+        }
+    </script>
+</body>
+</html>

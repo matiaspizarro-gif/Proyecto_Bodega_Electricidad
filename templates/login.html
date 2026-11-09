@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso - Bodega Electricidad</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: none; font-weight: bold; cursor: pointer; color: #666; font-size: 15px; }
+        .tab-btn.active { color: #007bff; border-bottom: 2px solid #007bff; margin-bottom: -2px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #333; }
+        .form-group input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        .btn-action { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        .btn-action:hover { background: #0056b3; }
+        .msg-box { margin-top: 15px; text-align: center; font-size: 14px; display: none; padding: 8px; border-radius: 4px; }
+        .msg-error { background: #f8d7da; color: #721c24; }
+        .msg-success { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2 style="text-align: center; margin-top: 0; margin-bottom: 20px; color: #333;">Bodega de Electricidad</h2>
+
+        <div class="tabs">
+            <button class="tab-btn active" id="btnTabLogin" onclick="mostrarTab('login')">Iniciar Sesión</button>
+            <button class="tab-btn" id="btnTabRegistro" onclick="mostrarTab('registro')">Crear Cuenta Profesor</button>
+        </div>
+
+        <!-- FORMULARIO 1: INICIAR SESIÓN -->
+        <form id="formLogin">
+            <div class="form-group">
+                <label for="loginUsuario">Usuario / RUT / Email:</label>
+                <input type="text" id="loginUsuario" required placeholder="Ej: admin o juan@inacap.cl">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Contraseña:</label>
+                <input type="password" id="loginPassword" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn-action">Ingresar</button>
+        </form>
+
+        <!-- FORMULARIO 2: REGISTRO DE PROFESOR -->
+        <form id="formRegistro" style="display: none;">
+            <div class="form-group">
+                <label for="regRut">RUT:</label>
+                <input type="text" id="regRut" required placeholder="Ej: 12345678-9">
+            </div>
+            <div class="form-group">
+                <label for="regNombre">Nombre:</label>
+                <input type="text" id="regNombre" required placeholder="Ej: Juan">
+            </div>
+            <div class="form-group">
+                <label for="regApellido">Apellido:</label>
+                <input type="text" id="regApellido" placeholder="Ej: Pérez">
+            </div>
+            <div class="form-group">
+                <label for="regEmail">Correo Institucional:</label>
+                <input type="email" id="regEmail" required placeholder="ejemplo@inacap.cl">
+            </div>
+            <div class="form-group">
+                <label for="regPassword">Crea una Contraseña:</label>
+                <input type="password" id="regPassword" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn-action" style="background: #28a745;">Registrarse</button>
+        </form>
+
+        <div id="msgBox" class="msg-box"></div>
+    </div>
+
+    <script>
+        const msgBox = document.getElementById('msgBox');
+
+        function mostrarTab(tab) {
+            document.getElementById('formLogin').style.display = (tab === 'login') ? 'block' : 'none';
+            document.getElementById('formRegistro').style.display = (tab === 'registro') ? 'block' : 'none';
+            
+            document.getElementById('btnTabLogin').classList.toggle('active', tab === 'login');
+            document.getElementById('btnTabRegistro').classList.toggle('active', tab === 'registro');
+
+            msgBox.style.display = 'none';
+        }
+
+        // --- LÓGICA LOGIN ---
+        document.getElementById('formLogin').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            msgBox.style.display = 'none';
+
+            const usuario = document.getElementById('loginUsuario').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.status === 'ok') {
+                    window.location.href = data.redirect;
+                } else {
+                    mostrarMensaje(data.message || 'Credenciales incorrectas.', 'error');
+                }
+            } catch (err) {
+                mostrarMensaje('Error al conectar con el servidor.', 'error');
+            }
+        });
+
+        // --- LÓGICA REGISTRO LIBRE ---
+        document.getElementById('formRegistro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            msgBox.style.display = 'none';
+
+            const rut = document.getElementById('regRut').value.trim();
+            const nombre = document.getElementById('regNombre').value.trim();
+            const apellido = document.getElementById('regApellido').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value.trim();
+
+            try {
+                const res = await fetch('/api/profesores/registro', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rut, nombre, apellido, email, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.status === 'ok') {
+                    mostrarMensaje(data.message, 'success');
+                    document.getElementById('formRegistro').reset();
+                    setTimeout(() => mostrarTab('login'), 2000);
+                } else {
+                    mostrarMensaje(data.message || 'Error al registrar.', 'error');
+                }
+            } catch (err) {
+                mostrarMensaje('Error de conexión al registrar cuenta.', 'error');
+            }
+        });
+
+        function mostrarMensaje(texto, tipo) {
+            msgBox.textContent = texto;
+            msgBox.className = 'msg-box ' + (tipo === 'success' ? 'msg-success' : 'msg-error');
+            msgBox.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
